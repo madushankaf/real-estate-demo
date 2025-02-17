@@ -1,0 +1,46 @@
+<api xmlns="http://ws.apache.org/ns/synapse" name="RentalServiceAPI" context="/rental">
+    <resource methods="POST" uri-template="/request">
+        <inSequence>
+            <log level="full"/>
+            <!-- Validate consumer_id in JSON payload -->
+            <filter source="json-eval($.consumer_id)" regex="^\d+$">
+                <then>
+                    <!-- Extract fields from JSON payload -->
+                    <property name="consumer_id" expression="json-eval($.consumer_id)" scope="default" type="STRING"/>
+                    <property name="property_id" expression="json-eval($.property_id)" scope="default" type="STRING"/>
+                    <property name="rental_start_date" expression="json-eval($.rental_start_date)" scope="default" type="STRING"/>
+                    <property name="rental_duration_days" expression="json-eval($.rental_duration_days)" scope="default" type="STRING"/>
+                    <property name="payment_method" expression="json-eval($.payment_method)" scope="default" type="STRING"/>
+ <log level="custom">
+        <property name="dbUserVar" expression="get-property('env.DB_USER')"/>
+    </log>
+                    <!-- Insert data into MySQL database -->
+                    <dbreport>
+                        <connection>
+                            <pool>
+                                <driver>com.mysql.cj.jdbc.Driver</driver>
+                                <url>${env:DB_URL}</url>
+                                <user>${env:DB_USER}</user>
+                                <password>${env:DB_PASSWORD}</password>
+                            </pool>
+                        </connection>
+                        <statement>
+                            <sql><![CDATA[INSERT INTO rentals (consumer_id, property_id, rental_start_date, rental_duration_days, payment_method) VALUES (?, ?, ?, ?, ?)]]></sql>
+                            <parameter expression="get-property('consumer_id')" type="VARCHAR"/>
+                            <parameter expression="get-property('property_id')" type="VARCHAR"/>
+                            <parameter expression="get-property('rental_start_date')" type="VARCHAR"/>
+                            <parameter expression="get-property('rental_duration_days')" type="INTEGER"/>
+                            <parameter expression="get-property('payment_method')" type="VARCHAR"/>
+                        </statement>
+                    </dbreport>
+                    <property name="RESPONSE" value="{'status': 'Valid Consumer ID Received and Data Saved'}" scope="default" type="STRING"/>
+                    <respond/>
+                </then>
+                <else>
+                    <property name="RESPONSE" value="{'error': 'Invalid Consumer ID'}" scope="default" type="STRING"/>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+    </resource>
+</api>
